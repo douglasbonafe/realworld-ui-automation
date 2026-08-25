@@ -104,12 +104,24 @@ public abstract class BasePage {
             try {
               target.click();
             } catch (org.openqa.selenium.WebDriverException nativeClickFailed) {
-              // Documented fallback, not a blanket workaround. A JS click
-              // dispatches a real bubbling MouseEvent, so React's delegated
-              // handler still fires, but it bypasses WebDriver's actionability
-              // checks — meaning it would also mask a genuinely obscured
-              // element. It runs only after a native click has already failed,
-              // so the honest signal is tried first.
+              // Swallowed: the JS click below covers it.
+            }
+            // Both, every attempt — not JS-only-if-native-throws.
+            //
+            // The failure mode that forced this is the nastiest of the lot: the
+            // native click SUCCEEDS as far as WebDriver is concerned, throws
+            // nothing, and still has no effect, because React replaced the node
+            // between the hit-test and the dispatch. An exception-triggered
+            // fallback never runs in that case, so the loop clicks a detached
+            // element thirty times and then times out.
+            //
+            // A JS click dispatches a real bubbling MouseEvent, so React's
+            // delegated handler fires. It does bypass WebDriver's actionability
+            // checks, which is a genuine cost: it would also click an element a
+            // user could not reach. The native click still runs first, so an
+            // element that is legitimately obscured is still exercised the
+            // honest way — and `settled` is what decides success either way.
+            if (!settled.test(d)) {
               jsClick(d, target);
             }
           }
@@ -140,12 +152,35 @@ public abstract class BasePage {
    * the same key events a person would.
    */
   protected void fill(By locator, String value) {
-    WebElement field = visible(locator);
-    field.click();
-    field.sendKeys(org.openqa.selenium.Keys.chord(org.openqa.selenium.Keys.CONTROL, "a"));
-    field.sendKeys(org.openqa.selenium.Keys.DELETE);
-    if (!value.isEmpty()) {
-      field.sendKeys(value);
+    visible(locator);
+    wait.until(d -> fillOnce(d, locator, value));
+  }
+
+  /**
+   * One attempt at replacing a field's value, reporting whether it stuck.
+   *
+   * <p>{@code sendKeys} is fire-and-forget. If the field is re-rendered between
+   * the element lookup and the keystrokes — which this app does constantly — the
+   * characters go to a detached node and are silently lost: WebDriver reports
+   * success and the field stays empty. A CI screenshot from this suite showed
+   * exactly that, a focused and empty search box after a {@code sendKeys} that
+   * "worked".
+   *
+   * <p>Re-resolving and checking the value turns a dispatch into a verified
+   * outcome — the same principle as {@link #clickUntil}.
+   */
+  private static boolean fillOnce(WebDriver driver, By locator, String value) {
+    try {
+      WebElement field = driver.findElement(locator);
+      field.click();
+      field.sendKeys(org.openqa.selenium.Keys.chord(org.openqa.selenium.Keys.CONTROL, "a"));
+      field.sendKeys(org.openqa.selenium.Keys.DELETE);
+      if (!value.isEmpty()) {
+        field.sendKeys(value);
+      }
+      return value.equals(driver.findElement(locator).getDomProperty("value"));
+    } catch (org.openqa.selenium.WebDriverException retryable) {
+      return false;
     }
   }
 
