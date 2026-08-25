@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>dev.dsbon.realworld</groupId>
+  <artifactId>selenium-e2e</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+
+  <name>RealWorld Selenium E2E</name>
+  <description>Selenium WebDriver end-to-end suite for cypress-realworld-app</description>
+
+  <properties>
+    <maven.compiler.release>25</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <selenium.version>4.47.0</selenium.version>
+    <junit.version>6.1.3</junit.version>
+    <assertj.version>3.27.7</assertj.version>
+    <jackson.version>2.22.2</jackson.version>
+    <slf4j.version>2.0.18</slf4j.version>
+    <surefire.version>3.5.6</surefire.version>
+
+    <!--
+      Runtime switches, overridable from the command line:
+        mvn test -Dbase.url=http://rwa.local:3000 -Dheadless=false
+    -->
+    <base.url>http://localhost:3000</base.url>
+    <api.url>http://localhost:3001</api.url>
+    <browser>chrome</browser>
+    <headless>true</headless>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!--
+      Selenium 4.6+ ships Selenium Manager, which resolves and downloads the
+      matching browser driver automatically. That is why there is no
+      WebDriverManager dependency and no chromedriver checked into the repo.
+    -->
+    <dependency>
+      <groupId>org.seleniumhq.selenium</groupId>
+      <artifactId>selenium-java</artifactId>
+      <version>${selenium.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>${assertj.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Reads shared/seed-users.json, the fixture the other two suites use. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Keeps Selenium's internal logging quiet instead of warning about no binding. -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>${slf4j.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${surefire.version}</version>
+        <configuration>
+          <systemPropertyVariables>
+            <base.url>${base.url}</base.url>
+            <api.url>${api.url}</api.url>
+            <browser>${browser}</browser>
+            <headless>${headless}</headless>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
