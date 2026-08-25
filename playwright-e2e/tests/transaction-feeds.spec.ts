@@ -31,8 +31,17 @@ test.describe("Transaction feeds", () => {
   }) => {
     await feedPage.goto();
 
+    // Username, NOT the seeded first and last name.
+    //
+    // user-settings.spec.ts renames this shared account, and `fullyParallel`
+    // runs spec files in separate workers — so asserting "Ted P" here was a race
+    // this suite happened to be winning. The Selenium implementation lost the
+    // same race the moment its settings test started working, and a screenshot
+    // caught the drawer reading the renamed value.
+    //
+    // The username is immutable in this app, so it identifies the session
+    // without depending on data another test legitimately owns.
     await sideNav.expectSignedInAs(PRIMARY_USER.username);
-    await sideNav.expectFullName(PRIMARY_USER.firstName, PRIMARY_USER.lastName);
     await sideNav.expectFormattedBalance();
   });
 });

@@ -20,18 +20,24 @@ public class TransactionFeedPage extends BasePage {
   }
 
   public enum Feed {
-    EVERYONE("nav-public-tab"),
-    FRIENDS("nav-contacts-tab"),
-    MINE("nav-personal-tab");
+    EVERYONE("nav-public-tab", "/"),
+    FRIENDS("nav-contacts-tab", "/contacts"),
+    MINE("nav-personal-tab", "/personal");
 
     private final String testId;
+    private final String path;
 
-    Feed(String testId) {
+    Feed(String testId, String path) {
       this.testId = testId;
+      this.path = path;
     }
 
     By locator() {
       return By.cssSelector("[data-test='%s']".formatted(testId));
+    }
+
+    String path() {
+      return path;
     }
   }
 
@@ -41,10 +47,28 @@ public class TransactionFeedPage extends BasePage {
     return this;
   }
 
+  /**
+   * Switch feeds, and verify the switch actually happened.
+   *
+   * <p>A plain click here produced the single most misleading failure of this
+   * whole suite. The tab click was swallowed by a React re-render, the app stayed
+   * on "Everyone", and a payment test then searched the PUBLIC feed for a
+   * transaction that was sitting in the personal one. The screenshot showed the
+   * money had moved correctly and the balance was right — the test was simply
+   * looking in the wrong place, and said "transaction not found".
+   *
+   * <p>Switching tabs is idempotent, so the looping variant is safe, and the URL
+   * is an unambiguous outcome to settle on.
+   */
   public TransactionFeedPage openFeed(Feed feed) {
-    click(feed.locator());
+    clickUntil(feed.locator(), d -> feed.path().equals(pathOf(d.getCurrentUrl())));
     awaitList();
     return this;
+  }
+
+  private static String pathOf(String url) {
+    String path = java.net.URI.create(url).getPath();
+    return path == null || path.isEmpty() ? "/" : path;
   }
 
   /**

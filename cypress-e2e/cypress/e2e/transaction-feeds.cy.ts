@@ -35,9 +35,15 @@ describe("Transaction feeds", () => {
   it("shows the signed-in user's identity and balance in the drawer", () => {
     const user = primaryUser();
 
-    sideNav
-      .shouldShowUsername(user.username)
-      .shouldShowFullName(user.firstName, user.lastName)
-      .shouldShowFormattedBalance();
+    // Username, NOT the seeded first and last name.
+    //
+    // user-settings.cy.ts renames this shared account. Cypress runs specs
+    // sequentially so this suite never lost the race, but the assertion was
+    // still depending on data another spec owns — and the Selenium
+    // implementation, whose classes run concurrently, lost it outright.
+    //
+    // The username is immutable in this app, so it identifies the session
+    // without that dependency.
+    sideNav.shouldShowUsername(user.username).shouldShowFormattedBalance();
   });
 });
