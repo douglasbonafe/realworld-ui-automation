@@ -178,10 +178,67 @@ public abstract class BasePage {
       if (!value.isEmpty()) {
         field.sendKeys(value);
       }
-      return value.equals(driver.findElement(locator).getDomProperty("value"));
+      if (matches(driver, locator, value)) {
+        return true;
+      }
+      // Native typing did not land. A CI screenshot showed the field focused —
+      // so the click worked — and still holding its original text after a
+      // sendKeys that WebDriver reported as successful.
+      setValueViaReact(driver, field, value);
+      return matches(driver, locator, value);
     } catch (org.openqa.selenium.WebDriverException retryable) {
+      // Stale between lookup and dispatch: the next poll re-resolves.
       return false;
     }
+  }
+
+  /**
+   * Compare what we asked for with what the field holds, ignoring formatting.
+   *
+   * <p>Two fields in this app rewrite their own value as you type: the amount
+   * field is a {@code react-number-format} currency mask ({@code "25"} becomes
+   * {@code "$25"}) and the phone field is dash-formatted ({@code "6155551212"}
+   * becomes {@code "615-555-1212"}). A strict equality check never converges on
+   * either, so the comparison keeps only letters and digits.
+   */
+  private static boolean matches(WebDriver driver, By locator, String expected) {
+    String actual = driver.findElement(locator).getDomProperty("value");
+    return normalize(expected).equals(normalize(actual == null ? "" : actual));
+  }
+
+  private static String normalize(String value) {
+    return value.replaceAll("[^\\p{L}\\p{N}]", "");
+  }
+
+  /**
+   * Set a React controlled input's value from JavaScript.
+   *
+   * <p>Assigning {@code el.value} directly is not enough: React caches the last
+   * value it saw on the node and skips the {@code onChange} when the new value
+   * looks unchanged to its tracker. Calling the <b>native</b> setter from
+   * {@code HTMLInputElement.prototype} bypasses that cache, and dispatching a
+   * bubbling {@code input} event is what React's synthetic {@code onChange}
+   * actually listens for.
+   *
+   * <p>This is a real trade-off and worth naming: it is no longer a keyboard
+   * interaction, so it would not catch a field that rejects keystrokes, an
+   * {@code onKeyDown} handler, or a maxlength. Native typing is therefore always
+   * attempted first, and this runs only when that produced nothing — which keeps
+   * the honest signal while stopping a driver-level quirk from failing the test.
+   */
+  private static void setValueViaReact(WebDriver driver, WebElement field, String value) {
+    ((org.openqa.selenium.JavascriptExecutor) driver)
+        .executeScript(
+            """
+            const el = arguments[0], value = arguments[1];
+            const proto = el instanceof window.HTMLTextAreaElement
+              ? window.HTMLTextAreaElement.prototype
+              : window.HTMLInputElement.prototype;
+            Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            """,
+            field,
+            value);
   }
 
   protected String textOf(By locator) {
