@@ -74,9 +74,16 @@ public class TransactionFeedPage extends BasePage {
         });
   }
 
+  /**
+   * Open the first row in the current feed.
+   *
+   * <p>The feed is an infinite list that re-renders as more rows stream in, so a
+   * single dispatched click can hit a row React is replacing. Clicking until the
+   * detail header appears verifies the real outcome instead of the dispatch.
+   */
   public TransactionFeedPage openFirstTransaction() {
-    allOf(ITEMS).getFirst().click();
-    visible(DETAIL_HEADER);
+    awaitList();
+    clickUntil(ITEMS, d -> isVisible(d, DETAIL_HEADER));
     return this;
   }
 

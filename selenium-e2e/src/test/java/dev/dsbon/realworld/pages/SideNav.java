@@ -45,12 +45,13 @@ public class SideNav extends BasePage {
     // On a desktop viewport the toggle IS displayed and the drawer is already
     // open, so that click CLOSED the drawer and made sign-out unreachable — a
     // self-inflicted timeout that only showed up in CI.
-    //
-    // Asking whether sign-out itself is reachable is correct at every size.
-    if (driver.findElements(SIGN_OUT).stream().noneMatch(e -> e.isDisplayed())) {
+    if (!isVisible(driver, SIGN_OUT)) {
       click(TOGGLE);
     }
-    click(SIGN_OUT);
+    // The drawer item is a MUI ListItem with a ripple, and it re-renders as the
+    // auth machine transitions. A single dispatched click can land on a detached
+    // node and vanish, so click until the app has actually navigated.
+    clickUntil(SIGN_OUT, d -> d.getCurrentUrl().endsWith("/signin"));
   }
 
   public void goToSettings() {

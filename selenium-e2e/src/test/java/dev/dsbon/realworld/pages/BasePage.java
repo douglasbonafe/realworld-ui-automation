@@ -64,6 +64,50 @@ public abstract class BasePage {
   }
 
   /**
+   * Click, check whether it took effect, and click again until it did.
+   *
+   * <p>This exists because of a difference between Selenium and the other two
+   * frameworks that only shows up against a React app. Cypress and Playwright
+   * re-resolve an element and re-check actionability on every retry, so a click
+   * that lands in the middle of a re-render is retried transparently. WebDriver
+   * resolves once and dispatches once: if React swaps the node out between the
+   * lookup and the dispatch, the click hits a detached element and is silently
+   * lost. No exception, no navigation — just a later timeout somewhere else.
+   *
+   * <p>This is bounded by the same {@link #wait} budget as everything else, and
+   * it verifies a real outcome rather than sleeping, so it is a retry with a
+   * condition rather than a blind one. It is used on the two interactions in
+   * this app where the target re-renders as it is clicked: the debounced contact
+   * list, and the navigation drawer while it animates.
+   *
+   * @param locator what to click
+   * @param settled the outcome that means the click worked
+   */
+  protected void clickUntil(By locator, java.util.function.Predicate<WebDriver> settled) {
+    wait.until(
+        d -> {
+          if (settled.test(d)) {
+            return true;
+          }
+          try {
+            WebElement target =
+                d.findElements(locator).stream().filter(WebElement::isDisplayed).findFirst().orElse(null);
+            if (target != null) {
+              target.click();
+            }
+          } catch (org.openqa.selenium.WebDriverException swallowed) {
+            // Stale or intercepted mid-render: the next poll re-finds it.
+          }
+          return settled.test(d);
+        });
+  }
+
+  /** True when at least one element matching the locator is rendered and visible. */
+  protected static boolean isVisible(WebDriver driver, By locator) {
+    return driver.findElements(locator).stream().anyMatch(WebElement::isDisplayed);
+  }
+
+  /**
    * Replace a field's contents.
    *
    * <p>{@code clear()} alone is not enough for a controlled React input: it wipes

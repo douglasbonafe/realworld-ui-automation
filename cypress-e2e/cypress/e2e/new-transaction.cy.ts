@@ -19,16 +19,20 @@ describe("New transaction", () => {
     // feed that already contains hundreds of seeded ones.
     const description = `Cypress payment ${Date.now()}`;
 
+    // Whole dollars, deliberately. The amount field is a currency-masked input
+    // and the backend multiplies by 100 before storing, so a typed decimal does
+    // not survive the round trip predictably. The application's own suite uses
+    // whole amounts throughout for the same reason.
     newTransactionPage
       .visit()
       .selectContact(payee.id, payee.firstName)
-      .enterPaymentDetails("25.50", description)
+      .enterPaymentDetails("25", description)
       .pay()
       .shouldShowConfirmation()
       .returnToTransactions();
 
     // A payment leaves the sender's balance, so it renders as a negative amount.
-    transactionFeedPage.openFeed("mine").shouldContainTransaction(description, "-$25.50");
+    transactionFeedPage.openFeed("mine").shouldContainTransaction(description, "-$25.00");
   });
 
   it("requests money from a contact and shows it as a pending request", () => {
@@ -38,7 +42,7 @@ describe("New transaction", () => {
     newTransactionPage
       .visit()
       .selectContact(payee.id, payee.firstName)
-      .enterPaymentDetails("12.00", description)
+      .enterPaymentDetails("12", description)
       .request()
       .shouldShowConfirmation()
       .returnToTransactions();
@@ -47,15 +51,20 @@ describe("New transaction", () => {
     transactionFeedPage.openFeed("mine").shouldContainTransaction(description, "+$12.00");
   });
 
-  it("disables both submit buttons once the amount is touched and left empty", () => {
+  it("enables the submit buttons only while amount and description are valid", () => {
     const payee = contactUser();
 
-    // Pristine means ENABLED here — Formik starts with `isValid === true` and
-    // the buttons are bound to `disabled={!isValid || isSubmitting}`. The guard
-    // only engages after a field has been touched and failed validation.
+    // This form behaves the OPPOSITE way to the sign-in and sign-up forms, and
+    // the reason is one prop: TransactionCreateStepTwo passes
+    // `validateOnMount={true}` to Formik, so validation runs before any
+    // interaction and `isValid` starts false. The auth forms do not, so they
+    // start valid — and enabled. Same `disabled={!isValid || isSubmitting}`
+    // binding, opposite initial state.
     newTransactionPage
       .visit()
       .selectContact(payee.id, payee.firstName)
+      .shouldHaveDisabledSubmit()
+      .enterPaymentDetails("10", "Valid for now")
       .shouldHaveEnabledSubmit()
       .touchAndClearAmount()
       .shouldHaveDisabledSubmit();

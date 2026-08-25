@@ -90,6 +90,23 @@ The attribute lands on a `div.MuiFormControl-root`. The real control is a descen
 ```
 Here the attribute *is* on the `<input>`, and adding ` input` would match nothing.
 
+There are exactly **six** fields in category 3, and the authoritative list comes from the source rather than from guesswork:
+
+```bash
+grep -rn 'inputProps=' src/components/*.tsx
+```
+
+| Field | Component |
+|---|---|
+| `user-list-search-input` | UserListSearchForm |
+| `user-settings-firstName-input` | UserSettingsForm |
+| `user-settings-lastName-input` | UserSettingsForm |
+| `user-settings-email-input` | UserSettingsForm |
+| `user-settings-phoneNumber-input` | UserSettingsForm |
+| `transaction-comment-input-<id>` | CommentForm |
+
+Everything else that is a text field belongs to category 2 and needs the ` input` suffix. Getting this backwards costs a full CI run: the settings suite fails with `[data-test="user-settings-firstName-input"] input never found`, which reads like a missing element rather than one selector too many.
+
 **4. Interpolated with a runtime id** — list rows:
 ```jsx
 data-test={`transaction-item-${transaction.id}`}
@@ -124,19 +141,28 @@ This is why the application's own suite reaches for `loginByXstate` (which drive
 
 **What this suite does:** Cypress caches a *UI* login inside `cy.session()` — which snapshots localStorage as well as cookies — and Playwright's setup project does a UI login and saves `storageState`. Correctness over speed.
 
-### 2. Submit buttons are ENABLED on a pristine form
+### 2. Submit buttons start ENABLED on some forms and DISABLED on others
 
-Every form in the app binds its button the same way:
+Every form in the app binds its button identically:
 
 ```jsx
 <Button disabled={!isValid || isSubmitting}>
 ```
 
-Formik initialises `isValid` to **`true`**, so an untouched, completely empty form has an **enabled** submit button. The guard only engages once a field has been touched and failed validation.
+…and yet they behave in opposite ways, because of a single prop:
 
-`expect(submit).toBeDisabled()` on a freshly loaded form therefore fails — and it fails in the direction that reads like an app bug rather than a wrong expectation.
+| Form | `validateOnMount` | Pristine button |
+|---|---|---|
+| Sign in | not set | **enabled** |
+| Sign up | not set | **enabled** |
+| User settings | not set | **enabled** |
+| Transaction wizard (step two) | `true` | **disabled** |
 
-**What this suite does:** asserts the enabled state first, then touches a field, clears it, blurs, and asserts disabled. That pins down both halves of the real behaviour. It applies to the sign-in form, the sign-up form, the transaction wizard and the settings form alike.
+Formik initialises `isValid` to `true` and only recomputes it after an interaction — unless `validateOnMount` forces validation before any interaction, which is what `TransactionCreateStepTwo` does.
+
+So `expect(submit).toBeDisabled()` on a freshly loaded sign-in form fails, and `expect(submit).toBeEnabled()` on a freshly opened payment form fails. Both fail in the direction that reads like an app bug rather than a wrong expectation, and no amount of reading one form tells you about the other.
+
+**What this suite does:** asserts the pristine state explicitly for each form — enabled for the auth and settings forms, disabled for the transaction wizard — then drives the transition and asserts the other side. Both halves of the real behaviour get pinned down instead of one being assumed.
 
 ### 3. Clicking the hamburger on desktop *closes* the drawer
 

@@ -18,10 +18,13 @@ export class UserSettingsPage {
 
   constructor(private readonly page: Page) {
     this.form = page.getByTestId("user-settings-form");
-    this.firstName = page.getByTestId("user-settings-firstName-input").locator("input");
-    this.lastName = page.getByTestId("user-settings-lastName-input").locator("input");
-    this.email = page.getByTestId("user-settings-email-input").locator("input");
-    this.phoneNumber = page.getByTestId("user-settings-phoneNumber-input").locator("input");
+    // No `.locator("input")` here: all four settings fields pass the attribute
+    // through `inputProps`, so it already sits on the <input> itself. Six fields
+    // in this app do that — see the list in the Cypress selectors file.
+    this.firstName = page.getByTestId("user-settings-firstName-input");
+    this.lastName = page.getByTestId("user-settings-lastName-input");
+    this.email = page.getByTestId("user-settings-email-input");
+    this.phoneNumber = page.getByTestId("user-settings-phoneNumber-input");
     this.submit = page.getByTestId("user-settings-submit");
   }
 

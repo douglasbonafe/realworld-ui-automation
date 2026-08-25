@@ -19,13 +19,26 @@
  * in ` input`. The application's own suite works around the same thing with
  * `.find("input")`.
  *
- * The exception — and there is exactly one — is the contact search box, which
- * passes the attribute through `inputProps`, landing it on the real `<input>`:
+ * The exceptions are the fields that pass the attribute through `inputProps`,
+ * which lands it on the real `<input>`:
  *
- *     <TextField inputProps={{ "data-test": "user-list-search-input" }} />
+ *     <TextField inputProps={{ "data-test": "user-settings-firstName-input" }} />
  *
- * So it must NOT get the ` input` suffix. Checkboxes (`signin-remember-me`) put
- * the attribute on the MUI span wrapper and do need it.
+ * Those must NOT get the ` input` suffix. There are six of them, and the
+ * authoritative list comes from the application source, not from guesswork:
+ *
+ *     grep -rn 'inputProps=' src/components/*.tsx
+ *
+ *   - user-list-search-input          (UserListSearchForm)
+ *   - user-settings-firstName-input   (UserSettingsForm)
+ *   - user-settings-lastName-input    (UserSettingsForm)
+ *   - user-settings-email-input       (UserSettingsForm)
+ *   - user-settings-phoneNumber-input (UserSettingsForm)
+ *   - transaction-comment-input-<id>  (CommentForm)
+ *
+ * Everything else is a plain `<TextField data-test=...>` and needs the suffix.
+ * Checkboxes (`signin-remember-me`) put the attribute on the MUI span wrapper
+ * and need it too.
  *
  * Buttons, links and text nodes carry the attribute directly and need no suffix.
  *
@@ -101,11 +114,13 @@ export const SEL = {
     createAnother: dt("new-transaction-create-another-transaction"),
   },
   userSettings: {
+    // All four go through `inputProps`, so the attribute is already on the
+    // <input> — no ` input` suffix here.
     form: dt("user-settings-form"),
-    firstName: dtInput("user-settings-firstName-input"),
-    lastName: dtInput("user-settings-lastName-input"),
-    email: dtInput("user-settings-email-input"),
-    phoneNumber: dtInput("user-settings-phoneNumber-input"),
+    firstName: dt("user-settings-firstName-input"),
+    lastName: dt("user-settings-lastName-input"),
+    email: dt("user-settings-email-input"),
+    phoneNumber: dt("user-settings-phoneNumber-input"),
     submit: dt("user-settings-submit"),
   },
   onboarding: {

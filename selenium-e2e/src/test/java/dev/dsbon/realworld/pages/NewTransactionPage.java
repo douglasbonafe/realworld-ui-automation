@@ -27,11 +27,19 @@ public class NewTransactionPage extends BasePage {
     return this;
   }
 
-  /** Step 1 — the search is debounced, so wait for the specific row to appear. */
+  /**
+   * Step 1 — pick a contact.
+   *
+   * <p>The search is debounced, so the list re-renders after the last keystroke.
+   * A single click dispatched into that window lands on a node React is about to
+   * replace and is silently lost — no exception, no navigation, and then a
+   * timeout on the form that follows. {@code clickUntil} verifies the real
+   * outcome (the payment form appeared) and re-clicks until it does.
+   */
   public NewTransactionPage selectContact(String userId, String searchTerm) {
     fill(SEARCH, searchTerm);
-    click(By.cssSelector("[data-test='user-list-item-%s']".formatted(userId)));
-    visible(FORM);
+    By item = By.cssSelector("[data-test='user-list-item-%s']".formatted(userId));
+    clickUntil(item, d -> isVisible(d, FORM));
     return this;
   }
 

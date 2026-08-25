@@ -33,7 +33,11 @@ class NewTransactionTest extends BaseTest {
     new NewTransactionPage(driver)
         .open()
         .selectContact(payee.id(), payee.firstName())
-        .enterDetails("25.50", description)
+        // Whole dollars, deliberately: the amount field is a currency-masked
+        // input and the backend multiplies by 100 before storing, so a typed
+        // decimal does not survive the round trip predictably. The app's own
+        // suite uses whole amounts throughout for the same reason.
+        .enterDetails("25", description)
         .pay()
         .awaitConfirmation()
         .backToFeeds();
@@ -43,7 +47,7 @@ class NewTransactionTest extends BaseTest {
 
     assertThat(row).isPresent();
     // A payment leaves the sender's balance, so it renders negative.
-    assertThat(row.orElseThrow().getText()).contains("-$25.50");
+    assertThat(row.orElseThrow().getText()).contains("-$25.00");
   }
 
   @Test
@@ -55,7 +59,7 @@ class NewTransactionTest extends BaseTest {
     new NewTransactionPage(driver)
         .open()
         .selectContact(payee.id(), payee.firstName())
-        .enterDetails("12.00", description)
+        .enterDetails("12", description)
         .request()
         .awaitConfirmation()
         .backToFeeds();
@@ -68,17 +72,24 @@ class NewTransactionTest extends BaseTest {
   }
 
   @Test
-  @DisplayName("disables both submit buttons once the amount is touched and left empty")
-  void disablesSubmitAfterInvalidAmount() {
+  @DisplayName("enables the submit buttons only while amount and description are valid")
+  void togglesSubmitWithValidity() {
     var payee = SeedUsers.contact();
 
     NewTransactionPage page =
         new NewTransactionPage(driver).open().selectContact(payee.id(), payee.firstName());
 
-    // Pristine means ENABLED here — Formik starts with `isValid === true` and
-    // the buttons are bound to `disabled={!isValid || isSubmitting}`.
-    assertThat(page.isPaymentEnabled()).as("pristine payment button").isTrue();
-    assertThat(page.isRequestEnabled()).as("pristine request button").isTrue();
+    // This form behaves the OPPOSITE way to the sign-in and sign-up forms, and
+    // the reason is one prop: TransactionCreateStepTwo passes
+    // `validateOnMount={true}` to Formik, so validation runs before any
+    // interaction and `isValid` starts false. The auth forms do not, so they
+    // start valid — and enabled. Same binding, opposite initial state.
+    assertThat(page.isPaymentEnabled()).as("pristine payment button").isFalse();
+    assertThat(page.isRequestEnabled()).as("pristine request button").isFalse();
+
+    page.enterDetails("10", "Valid for now");
+    assertThat(page.isPaymentEnabled()).as("with valid input").isTrue();
+    assertThat(page.isRequestEnabled()).as("with valid input").isTrue();
 
     page.touchAndClearAmount();
     assertThat(page.isPaymentEnabled()).as("after clearing the amount").isFalse();

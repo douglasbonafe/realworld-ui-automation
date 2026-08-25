@@ -7,10 +7,13 @@ import org.openqa.selenium.WebDriver;
 public class UserSettingsPage extends BasePage {
 
   private static final By FORM = testId("user-settings-form");
-  private static final By FIRST_NAME = testIdInput("user-settings-firstName-input");
-  private static final By LAST_NAME = testIdInput("user-settings-lastName-input");
-  private static final By EMAIL = testIdInput("user-settings-email-input");
-  private static final By PHONE = testIdInput("user-settings-phoneNumber-input");
+  // testId, not testIdInput: all four settings fields pass the attribute through
+  // `inputProps`, so it already sits on the <input>. Six fields in this app do
+  // that — see the list in the Cypress selectors file.
+  private static final By FIRST_NAME = testId("user-settings-firstName-input");
+  private static final By LAST_NAME = testId("user-settings-lastName-input");
+  private static final By EMAIL = testId("user-settings-email-input");
+  private static final By PHONE = testId("user-settings-phoneNumber-input");
   private static final By SUBMIT = testId("user-settings-submit");
 
   public UserSettingsPage(WebDriver driver) {
