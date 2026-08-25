@@ -50,8 +50,14 @@ public class UserSettingsPage extends BasePage {
    * deterministic.
    */
   public UserSettingsPage save(String expectedFirstName) {
-    click(SUBMIT);
-    awaitTextContains(By.cssSelector("[data-test='sidenav-user-full-name']"), expectedFirstName);
+    // clickThenSettle, not clickUntil: this writes a profile, so at most one
+    // retry and only through a different dispatch mechanism.
+    By drawerName = By.cssSelector("[data-test='sidenav-user-full-name']");
+    clickThenSettle(
+        SUBMIT,
+        d ->
+            d.findElements(drawerName).stream()
+                .anyMatch(e -> e.getText().contains(expectedFirstName)));
     return this;
   }
 

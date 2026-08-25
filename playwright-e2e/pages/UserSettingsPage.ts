@@ -41,18 +41,29 @@ export class UserSettingsPage {
   }
 
   /**
-   * Save and wait for the PATCH to complete.
+   * Save, wait for the PATCH, then wait for the client to reflect it.
    *
    * `waitForResponse` is armed *before* the click, so there is no window in
    * which the response could arrive before anyone is listening — the classic
    * way this pattern is written wrong.
+   *
+   * The second wait was added after a WebKit-only failure: 16 tests passed and
+   * `persistsProfile` failed, because a `page.reload()` fired immediately after
+   * the 204 re-rendered the form from a user object the client had not yet
+   * refreshed. Chromium and Firefox happened to win that race; WebKit did not.
+   *
+   * The navigation drawer showing the new first name proves the client has the
+   * updated user, not just the server. It is the same signal the Selenium suite
+   * waits on, which keeps the three implementations comparable.
    */
-  async save(): Promise<void> {
+  async save(expectedFirstName: string): Promise<void> {
     const response = this.page.waitForResponse(
       (r) => r.request().method() === "PATCH" && /\/users\/[^/]+$/.test(new URL(r.url()).pathname),
     );
     await this.submit.click();
     expect((await response).status()).toBe(204);
+
+    await expect(this.page.getByTestId("sidenav-user-full-name")).toContainText(expectedFirstName);
   }
 
   async expectValues(fields: ProfileFields): Promise<void> {

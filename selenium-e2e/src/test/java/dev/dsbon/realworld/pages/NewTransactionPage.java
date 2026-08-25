@@ -51,12 +51,16 @@ public class NewTransactionPage extends BasePage {
   }
 
   public NewTransactionPage pay() {
-    click(SUBMIT_PAYMENT);
+    // clickThenSettle, not clickUntil: this moves money. At most one retry, and
+    // only through a different dispatch mechanism.
+    clickThenSettle(SUBMIT_PAYMENT, d -> isVisible(d, RETURN_TO_TRANSACTIONS));
     return this;
   }
 
   public NewTransactionPage request() {
-    click(SUBMIT_REQUEST);
+    // clickThenSettle, not clickUntil: this moves money. At most one retry, and
+    // only through a different dispatch mechanism.
+    clickThenSettle(SUBMIT_REQUEST, d -> isVisible(d, RETURN_TO_TRANSACTIONS));
     return this;
   }
 
@@ -67,7 +71,8 @@ public class NewTransactionPage extends BasePage {
   }
 
   public void backToFeeds() {
-    click(RETURN_TO_TRANSACTIONS);
+    // Idempotent navigation, so the looping variant is safe here.
+    clickUntil(RETURN_TO_TRANSACTIONS, d -> !isVisible(d, RETURN_TO_TRANSACTIONS));
   }
 
   public boolean isPaymentEnabled() {

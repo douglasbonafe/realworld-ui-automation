@@ -23,7 +23,7 @@ test.describe("User settings", () => {
 
     await userSettingsPage.goto();
     await userSettingsPage.fill(updated);
-    await userSettingsPage.save();
+    await userSettingsPage.save(updated.firstName);
 
     await page.reload();
     await userSettingsPage.expectValues(updated);

@@ -129,6 +129,56 @@ public abstract class BasePage {
         });
   }
 
+  /**
+   * Click once, and retry with a different dispatch mechanism at most once.
+   *
+   * <p>{@link #clickUntil} re-clicks every poll until the outcome holds, which is
+   * right for an idempotent target — picking a contact, opening a row, signing
+   * out. It is <b>wrong</b> for a submit button that moves money or writes a
+   * profile: a slow response would look like a lost click and the loop would
+   * happily submit the form a second time.
+   *
+   * <p>So this dispatches natively, waits a short while, and only if nothing
+   * happened dispatches once more through JavaScript — a different mechanism,
+   * not the same one again, because repeating a dispatch that was already
+   * delivered is exactly the duplicate-submission risk. Two attempts, then the
+   * full wait budget for the outcome.
+   */
+  protected void clickThenSettle(By locator, java.util.function.Predicate<WebDriver> settled) {
+    WebElement button = clickable(locator);
+    scrollIntoView(driver, button);
+    try {
+      button.click();
+    } catch (org.openqa.selenium.WebDriverException nativeClickFailed) {
+      // The JS attempt below covers it.
+    }
+
+    if (settledWithin(java.time.Duration.ofSeconds(5), settled)) {
+      return;
+    }
+
+    // The native click produced nothing in five seconds. On this app that means
+    // it was dispatched into a node React had already replaced, so it was never
+    // delivered — retrying through JS cannot double-submit something that never
+    // submitted once.
+    driver.findElements(locator).stream()
+        .filter(WebElement::isDisplayed)
+        .findFirst()
+        .ifPresent(el -> jsClick(driver, el));
+
+    wait.until(settled::test);
+  }
+
+  private boolean settledWithin(
+      java.time.Duration budget, java.util.function.Predicate<WebDriver> settled) {
+    try {
+      new WebDriverWait(driver, budget).until(settled::test);
+      return true;
+    } catch (org.openqa.selenium.TimeoutException notYet) {
+      return false;
+    }
+  }
+
   private static void scrollIntoView(WebDriver driver, WebElement element) {
     ((org.openqa.selenium.JavascriptExecutor) driver)
         .executeScript("arguments[0].scrollIntoView({block:'center'});", element);
