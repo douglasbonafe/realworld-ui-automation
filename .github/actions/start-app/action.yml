@@ -1,0 +1,64 @@
+name: Start cypress-realworld-app
+description: >
+  Check out the application under test, seed it with the deterministic dataset
+  and start it in the background, then block until it answers on port 3000.
+
+inputs:
+  ref:
+    description: Git ref of cypress-realworld-app to test against
+    required: false
+    default: develop
+
+runs:
+  using: composite
+  steps:
+    - name: Check out the application under test
+      uses: actions/checkout@v4
+      with:
+        repository: cypress-io/cypress-realworld-app
+        ref: ${{ inputs.ref }}
+        path: .app
+
+    - name: Set up Node for the application
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Install application dependencies
+      shell: bash
+      working-directory: .app
+      # The app pins yarn classic and runs a postinstall that patches packages,
+      # so `yarn install --frozen-lockfile` is the only supported path here.
+      run: yarn install --frozen-lockfile
+
+    - name: Seed the deterministic dataset
+      shell: bash
+      working-directory: .app
+      # `db:seed:dev` copies data/database-seed.json over data/database.json.
+      # It is the fixed five-user dataset that shared/seed-users.json mirrors.
+      # `db:seed` would regenerate RANDOM users and break every test that names
+      # an account — so never swap these two.
+      run: yarn db:seed:dev
+
+    - name: Start the application
+      shell: bash
+      working-directory: .app
+      run: |
+        yarn dev > "$GITHUB_WORKSPACE/app.log" 2>&1 &
+        echo "Started cypress-realworld-app in the background."
+
+    - name: Wait for the application to answer
+      shell: bash
+      run: |
+        # Poll rather than sleep: Vite's first compile is slow and variable, and
+        # a fixed sleep is either wasteful or too short depending on the runner.
+        for i in $(seq 1 90); do
+          if curl -sf http://localhost:3000 > /dev/null && curl -sf http://localhost:3001/testData/users > /dev/null; then
+            echo "Application is up after ${i}s."
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "::error::The application did not start within 90s. Last 100 log lines:"
+        tail -n 100 "$GITHUB_WORKSPACE/app.log" || true
+        exit 1

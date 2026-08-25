@@ -1,0 +1,119 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# The application under test is a separate repository, so every job checks it
+# out, seeds it and starts it before running its own suite. Each framework gets
+# its own job: they are independent, they run in parallel, and a failure names
+# the framework that broke.
+env:
+  RWA_REPO: cypress-io/cypress-realworld-app
+  BASE_URL: http://localhost:3000
+  API_URL: http://localhost:3001
+
+jobs:
+  static-checks:
+    name: Type check (Cypress + Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Type check Cypress suite
+        working-directory: cypress-e2e
+        run: npm install --no-audit --no-fund && npm run typecheck
+      - name: Type check Playwright suite
+        working-directory: playwright-e2e
+        # PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD keeps this job fast: type checking
+        # does not need a browser binary.
+        run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --no-audit --no-fund && npm run typecheck
+
+  cypress:
+    name: Cypress
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/start-app
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        working-directory: cypress-e2e
+        run: npm install --no-audit --no-fund
+      - name: Run suite
+        working-directory: cypress-e2e
+        run: npm test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-artifacts
+          path: |
+            cypress-e2e/cypress/screenshots
+            cypress-e2e/cypress/videos
+          retention-days: 7
+
+  playwright:
+    name: Playwright (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/start-app
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        working-directory: playwright-e2e
+        run: npm install --no-audit --no-fund
+      - name: Install browser
+        working-directory: playwright-e2e
+        run: npx playwright install --with-deps ${{ matrix.project }}
+      - name: Run suite
+        working-directory: playwright-e2e
+        run: npx playwright test --project=${{ matrix.project }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          # Traces live in here — this artifact is what turns a red CI run into
+          # a five-minute diagnosis instead of a local reproduction hunt.
+          name: playwright-report-${{ matrix.project }}
+          path: |
+            playwright-e2e/playwright-report
+            playwright-e2e/test-results
+          retention-days: 7
+
+  selenium:
+    name: Selenium
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/start-app
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - name: Run suite
+        working-directory: selenium-e2e
+        # Chrome is preinstalled on ubuntu-latest runners; Selenium Manager
+        # resolves the matching driver at runtime, so nothing is vendored.
+        run: mvn -B test -Dbase.url=$BASE_URL -Dapi.url=$API_URL -Dheadless=true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: selenium-artifacts
+          path: |
+            selenium-e2e/target/screenshots
+            selenium-e2e/target/surefire-reports
+          retention-days: 7
