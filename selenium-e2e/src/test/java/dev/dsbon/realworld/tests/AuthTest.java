@@ -51,14 +51,23 @@ class AuthTest extends BaseTest {
   }
 
   @Test
-  @DisplayName("keeps the submit button disabled until both fields are filled")
-  void keepsSubmitDisabled() {
+  @DisplayName("disables the submit button once a field is touched and left invalid")
+  void disablesSubmitAfterInvalidInput() {
     SignInPage page = new SignInPage(driver).open();
 
-    assertThat(page.isSubmitEnabled()).isFalse();
+    // The pristine form is NOT disabled. Formik starts with `isValid === true`
+    // and the button is bound to `disabled={!isValid || isSubmitting}`, so the
+    // guard only engages after a field has been touched and failed validation.
+    // Asserting the enabled state first pins that down.
+    assertThat(page.isSubmitEnabled()).as("pristine form").isTrue();
 
-    page.fillUsername(SeedUsers.primary().username());
-    assertThat(page.isSubmitEnabled()).isFalse();
+    page.touchAndClearUsername();
+    assertThat(page.usernameHelperText()).contains("Username is required");
+
+    page.typeShortPassword();
+    assertThat(page.passwordHelperText()).contains("Password must contain at least 4 characters");
+
+    assertThat(page.isSubmitEnabled()).as("after invalid input").isFalse();
   }
 
   @Test
@@ -102,8 +111,14 @@ class AuthTest extends BaseTest {
   }
 
   @Test
-  @DisplayName("keeps the sign-up submit disabled while the form is incomplete")
-  void keepsSignUpSubmitDisabled() {
-    assertThat(new SignUpPage(driver).open().isSubmitEnabled()).isFalse();
+  @DisplayName("disables the sign-up submit once a required field is touched and left empty")
+  void disablesSignUpSubmitAfterInvalidInput() {
+    SignUpPage page = new SignUpPage(driver).open();
+
+    // Same Formik behaviour as the sign-in form: enabled while pristine.
+    assertThat(page.isSubmitEnabled()).as("pristine form").isTrue();
+
+    page.touchAndClearFirstName();
+    assertThat(page.isSubmitEnabled()).as("after clearing a required field").isFalse();
   }
 }

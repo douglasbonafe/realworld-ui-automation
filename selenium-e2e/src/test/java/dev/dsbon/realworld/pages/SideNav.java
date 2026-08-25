@@ -39,9 +39,15 @@ public class SideNav extends BasePage {
   }
 
   public void signOut() {
-    // Collapsed behind a hamburger on narrow viewports; opening it first keeps
-    // one page object valid at every window size.
-    if (isPresent(TOGGLE) && visible(TOGGLE).isDisplayed()) {
+    // Check the TARGET, not the hamburger.
+    //
+    // The first version asked "is the toggle displayed?" and clicked it if so.
+    // On a desktop viewport the toggle IS displayed and the drawer is already
+    // open, so that click CLOSED the drawer and made sign-out unreachable — a
+    // self-inflicted timeout that only showed up in CI.
+    //
+    // Asking whether sign-out itself is reachable is correct at every size.
+    if (driver.findElements(SIGN_OUT).stream().noneMatch(e -> e.isDisplayed())) {
       click(TOGGLE);
     }
     click(SIGN_OUT);

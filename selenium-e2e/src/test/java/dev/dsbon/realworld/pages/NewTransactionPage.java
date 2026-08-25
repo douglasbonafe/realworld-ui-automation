@@ -69,4 +69,18 @@ public class NewTransactionPage extends BasePage {
   public boolean isRequestEnabled() {
     return isEnabled(SUBMIT_REQUEST);
   }
+
+  /**
+   * Touch the amount field and leave it empty.
+   *
+   * <p>Like every other form in this app the buttons are bound to
+   * {@code disabled={!isValid || isSubmitting}} and Formik starts with
+   * {@code isValid === true} — so a pristine form has ENABLED buttons.
+   */
+  public NewTransactionPage touchAndClearAmount() {
+    fill(AMOUNT, "1");
+    fill(AMOUNT, "");
+    visible(DESCRIPTION).click();
+    return this;
+  }
 }

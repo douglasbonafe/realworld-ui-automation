@@ -38,6 +38,20 @@ public class SignUpPage extends BasePage {
     return isEnabled(SUBMIT);
   }
 
+  /**
+   * Touch a required field and leave it empty.
+   *
+   * <p>Formik starts with {@code isValid === true}, so a pristine form has an
+   * ENABLED submit button — the guard only engages once a field has been touched
+   * and failed validation. Same behaviour as the sign-in form.
+   */
+  public SignUpPage touchAndClearFirstName() {
+    fill(FIRST_NAME, "x");
+    fill(FIRST_NAME, "");
+    visible(LAST_NAME).click();
+    return this;
+  }
+
   /** The data a registration needs, kept as a record so tests read as data, not setters. */
   public record NewAccount(String firstName, String lastName, String username, String password) {}
 }

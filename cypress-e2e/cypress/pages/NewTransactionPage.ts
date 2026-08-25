@@ -69,6 +69,24 @@ export class NewTransactionPage {
     cy.get(SEL.newTransaction.submitRequest).should("be.disabled");
     return this;
   }
+
+  shouldHaveEnabledSubmit(): this {
+    cy.get(SEL.newTransaction.submitPayment).should("be.enabled");
+    cy.get(SEL.newTransaction.submitRequest).should("be.enabled");
+    return this;
+  }
+
+  /**
+   * Touch the amount field and leave it empty.
+   *
+   * Like every other form in this app, the buttons are bound to
+   * `disabled={!isValid || isSubmitting}` and Formik starts with
+   * `isValid === true` — so a pristine form has ENABLED buttons.
+   */
+  touchAndClearAmount(): this {
+    cy.get(SEL.newTransaction.amount).type("1").clear().blur();
+    return this;
+  }
 }
 
 export const newTransactionPage = new NewTransactionPage();

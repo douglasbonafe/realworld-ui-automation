@@ -68,18 +68,20 @@ class NewTransactionTest extends BaseTest {
   }
 
   @Test
-  @DisplayName("keeps both submit buttons disabled until amount and description are filled")
-  void keepsSubmitDisabled() {
+  @DisplayName("disables both submit buttons once the amount is touched and left empty")
+  void disablesSubmitAfterInvalidAmount() {
     var payee = SeedUsers.contact();
 
     NewTransactionPage page =
         new NewTransactionPage(driver).open().selectContact(payee.id(), payee.firstName());
 
-    assertThat(page.isPaymentEnabled()).isFalse();
-    assertThat(page.isRequestEnabled()).isFalse();
+    // Pristine means ENABLED here — Formik starts with `isValid === true` and
+    // the buttons are bound to `disabled={!isValid || isSubmitting}`.
+    assertThat(page.isPaymentEnabled()).as("pristine payment button").isTrue();
+    assertThat(page.isRequestEnabled()).as("pristine request button").isTrue();
 
-    page.enterDetails("10.00", "");
-    assertThat(page.isPaymentEnabled()).isFalse();
-    assertThat(page.isRequestEnabled()).isFalse();
+    page.touchAndClearAmount();
+    assertThat(page.isPaymentEnabled()).as("after clearing the amount").isFalse();
+    assertThat(page.isRequestEnabled()).as("after clearing the amount").isFalse();
   }
 }

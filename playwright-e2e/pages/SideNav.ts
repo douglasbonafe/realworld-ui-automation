@@ -36,12 +36,16 @@ export class SideNav {
   }
 
   async clickSignOut(): Promise<void> {
-    // The drawer collapses behind a hamburger on narrow viewports, which the
-    // mobile-chrome project uses. Opening it first keeps one page object valid
-    // for every project instead of forcing a mobile-only variant.
-    const toggle = this.page.getByTestId("sidenav-toggle");
-    if (await toggle.isVisible()) {
-      await toggle.click();
+    // Check the TARGET, not the hamburger.
+    //
+    // The first version of this asked "is the toggle visible?" and clicked it if
+    // so. On a desktop viewport the toggle is visible AND the drawer is already
+    // open, so that click CLOSED the drawer and the sign-out item became
+    // unclickable — a self-inflicted timeout that only appeared in CI.
+    //
+    // Asking whether sign-out itself is reachable is correct at every viewport.
+    if (!(await this.signOut.isVisible())) {
+      await this.page.getByTestId("sidenav-toggle").click();
     }
     await this.signOut.click();
   }

@@ -100,6 +100,65 @@ These cannot be constants. Each suite exposes them as small builder functions.
 
 ---
 
+## The three traps that cost us a CI run
+
+Each of these was found by an actual red build, not by reading the source. They are listed first because each one produces a symptom that looks nothing like its cause.
+
+### 1. A valid backend session is not enough — the client rehydrates from localStorage
+
+`src/machines/authMachine.ts` ends with:
+
+```js
+const stateDefinition = JSON.parse(localStorage.getItem("authState"));
+```
+
+The front end decides whether you are signed in from **its own persisted XState snapshot**, not from the session cookie. So the obvious test shortcut —
+
+```js
+cy.request("POST", "http://localhost:3001/login", { username, password })
+```
+
+— produces a session the *server* accepts (`GET /checkAuth` returns 200) while the *client* boots unauthenticated and redirects every protected route to `/signin`. The symptom is a login that "succeeded" followed by `[data-test="nav-transaction-tabs"] never found`.
+
+This is why the application's own suite reaches for `loginByXstate` (which drives the machine inside the browser) and barely uses the `loginByApi` command it also defines.
+
+**What this suite does:** Cypress caches a *UI* login inside `cy.session()` — which snapshots localStorage as well as cookies — and Playwright's setup project does a UI login and saves `storageState`. Correctness over speed.
+
+### 2. Submit buttons are ENABLED on a pristine form
+
+Every form in the app binds its button the same way:
+
+```jsx
+<Button disabled={!isValid || isSubmitting}>
+```
+
+Formik initialises `isValid` to **`true`**, so an untouched, completely empty form has an **enabled** submit button. The guard only engages once a field has been touched and failed validation.
+
+`expect(submit).toBeDisabled()` on a freshly loaded form therefore fails — and it fails in the direction that reads like an app bug rather than a wrong expectation.
+
+**What this suite does:** asserts the enabled state first, then touches a field, clears it, blurs, and asserts disabled. That pins down both halves of the real behaviour. It applies to the sign-in form, the sign-up form, the transaction wizard and the settings form alike.
+
+### 3. Clicking the hamburger on desktop *closes* the drawer
+
+`sidenav-toggle` exists and is visible at every viewport, but on desktop the drawer is already open. The natural-looking guard —
+
+```ts
+if (await toggle.isVisible()) await toggle.click();   // WRONG
+await signOut.click();
+```
+
+— closes the drawer on desktop and makes `sidenav-signout` unreachable, producing a click timeout that only appears in CI.
+
+**What this suite does:** checks whether *the target* is reachable, not whether the hamburger exists:
+
+```ts
+if (!(await this.signOut.isVisible())) await toggle.click();
+```
+
+Correct at every viewport, mobile included.
+
+---
+
 ## Behaviours worth knowing before you write a test
 
 **Registration does not log you in.** Submitting `/signup` leaves the visitor on the sign-in form. The suite signs in explicitly afterwards, which is better anyway — it exercises the new credentials for real.

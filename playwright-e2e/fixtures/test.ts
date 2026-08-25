@@ -1,5 +1,4 @@
 import { test as base, expect } from "@playwright/test";
-import { STORAGE_STATE } from "./seed-users";
 import { SignInPage } from "../pages/SignInPage";
 import { SignUpPage } from "../pages/SignUpPage";
 import { SideNav } from "../pages/SideNav";
@@ -9,16 +8,35 @@ import { UserSettingsPage } from "../pages/UserSettingsPage";
 import { OnboardingDialog } from "../pages/OnboardingDialog";
 
 /**
- * Two test objects, exported side by side:
+ * One `test` object, with the page objects injected as fixtures.
  *
- *   `test`     — already signed in as the primary seed user. Use for everything
- *                that is not about authentication.
- *   `anonTest` — a clean browser context with no session. Use for sign-in,
- *                sign-up and sign-out.
+ * That removes a line of boilerplate per object per test and — more usefully —
+ * lets a page object later grow a dependency (an API client, a logger) without
+ * touching a single test.
  *
- * Both inject page objects as fixtures. That removes a line of boilerplate per
- * object per test and — more usefully — lets a page object later grow a
- * dependency (an API client, a logger) without touching a single test.
+ * ---------------------------------------------------------------------------
+ * WHERE THE SESSION COMES FROM, AND WHY NOT FROM HERE
+ * ---------------------------------------------------------------------------
+ * Authentication is applied in `playwright.config.ts`, where every browser
+ * project declares `use: { storageState: STORAGE_STATE }`.
+ *
+ * The tempting alternative — exporting two objects from this file, one with
+ * `test.use({ storageState })` and one without — does not work, and it fails
+ * silently. `test.use()` only takes effect when it is called inside a **spec
+ * file** (or a `describe` block). Called at the top level of an imported helper
+ * module it is quietly ignored: no error, no warning, and every "authenticated"
+ * test runs anonymous.
+ *
+ * The first CI run on this repository hit exactly that: the seven auth tests
+ * (which want an anonymous context anyway) mostly passed, while all twelve
+ * authenticated tests failed with "nav-transaction-tabs never found" — a
+ * failure that looks like a broken app and is really a broken fixture.
+ *
+ * A spec that needs an anonymous context overrides it *in the spec file*:
+ *
+ *     test.use({ storageState: { cookies: [], origins: [] } });
+ *
+ * See `tests/auth.spec.ts`.
  */
 interface Pages {
   signInPage: SignInPage;
@@ -30,7 +48,7 @@ interface Pages {
   onboarding: OnboardingDialog;
 }
 
-const testWithPages = base.extend<Pages>({
+export const test = base.extend<Pages>({
   signInPage: async ({ page }, use) => {
     await use(new SignInPage(page));
   },
@@ -53,16 +71,5 @@ const testWithPages = base.extend<Pages>({
     await use(new OnboardingDialog(page));
   },
 });
-
-/** Authenticated: reuses the session written by fixtures/auth.setup.ts. */
-export const test = testWithPages;
-test.use({ storageState: STORAGE_STATE });
-
-/**
- * Anonymous: derived from the same base, then overridden with an empty storage
- * state so the application treats the browser as a first-time visitor.
- */
-export const anonTest = testWithPages.extend({});
-anonTest.use({ storageState: { cookies: [], origins: [] } });
 
 export { expect };

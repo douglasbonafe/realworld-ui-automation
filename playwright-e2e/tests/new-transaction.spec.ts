@@ -46,14 +46,17 @@ test.describe("New transaction", () => {
     await feedPage.expectTransaction(description, "+$12.00");
   });
 
-  test("keeps both submit buttons disabled until amount and description are filled", async ({
+  test("disables both submit buttons once the amount is touched and left empty", async ({
     newTransactionPage,
   }) => {
     await newTransactionPage.goto();
     await newTransactionPage.selectContact(CONTACT_USER.id, CONTACT_USER.firstName);
-    await newTransactionPage.expectSubmitDisabled();
 
-    await newTransactionPage.enterDetails("10.00", "");
+    // Pristine means ENABLED here — Formik starts with `isValid === true` and
+    // the buttons are bound to `disabled={!isValid || isSubmitting}`.
+    await newTransactionPage.expectSubmitEnabled();
+
+    await newTransactionPage.touchAndClearAmount();
     await newTransactionPage.expectSubmitDisabled();
   });
 });

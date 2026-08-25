@@ -9,7 +9,7 @@ import { primaryUser } from "../support/types";
  */
 describe("Transaction feeds", () => {
   beforeEach(() => {
-    cy.loginByApi(primaryUser().username);
+    cy.login(primaryUser().username);
     transactionFeedPage.visit();
   });
 

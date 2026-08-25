@@ -44,4 +44,21 @@ export class SignUpPage {
   async expectSubmitDisabled(): Promise<void> {
     await expect(this.submit).toBeDisabled();
   }
+
+  async expectSubmitEnabled(): Promise<void> {
+    await expect(this.submit).toBeEnabled();
+  }
+
+  /**
+   * Touch a required field and leave it empty.
+   *
+   * Formik starts with `isValid === true`, so the pristine form has an ENABLED
+   * submit button — the guard only engages once a field has been touched and
+   * failed validation. Same behaviour as the sign-in form.
+   */
+  async touchAndClearFirstName(): Promise<void> {
+    await this.firstName.fill("x");
+    await this.firstName.fill("");
+    await this.firstName.blur();
+  }
 }

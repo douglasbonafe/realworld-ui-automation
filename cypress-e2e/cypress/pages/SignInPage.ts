@@ -60,6 +60,42 @@ export class SignInPage {
     return this;
   }
 
+  shouldHaveEnabledSubmit(): this {
+    cy.get(SEL.signIn.submit).should("be.enabled");
+    return this;
+  }
+
+  /**
+   * Touch a field and leave it invalid, so Formik marks the form as invalid.
+   *
+   * The button is bound to `disabled={!isValid || isSubmitting}`, and Formik
+   * starts with `isValid === true` — so a pristine form has an ENABLED button.
+   * It only becomes disabled once a field has been touched and failed
+   * validation. Typing then clearing then blurring is the shortest way to get
+   * there, and is what the application's own suite does.
+   */
+  touchAndClearUsername(): this {
+    cy.get(SEL.signIn.username).type("x").clear().blur();
+    return this;
+  }
+
+  shouldShowUsernameRequired(): this {
+    cy.get("#username-helper-text").should("be.visible").and("contain.text", "Username is required");
+    return this;
+  }
+
+  shouldShowPasswordTooShort(): this {
+    cy.get("#password-helper-text")
+      .should("be.visible")
+      .and("contain.text", "Password must contain at least 4 characters");
+    return this;
+  }
+
+  typeShortPasswordAndBlur(): this {
+    cy.get(SEL.signIn.password).type("abc").blur();
+    return this;
+  }
+
   goToSignUp(): this {
     cy.get(SEL.signUp.link).click();
     return this;

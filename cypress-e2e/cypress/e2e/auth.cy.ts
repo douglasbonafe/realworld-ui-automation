@@ -39,10 +39,18 @@ describe("Authentication", () => {
     signInPage.shouldShowError("Username or password is invalid");
   });
 
-  it("keeps the submit button disabled until both fields are filled", () => {
-    signInPage.visit().shouldHaveDisabledSubmit();
+  it("disables the submit button once a field has been touched and left invalid", () => {
+    // The pristine form is NOT disabled. Formik starts with `isValid === true`,
+    // and the button is bound to `disabled={!isValid || isSubmitting}` — so the
+    // guard only engages after a field has been touched and failed validation.
+    // Asserting the enabled state first is what pins that down rather than
+    // leaving it as an accident.
+    signInPage.visit().shouldHaveEnabledSubmit();
 
-    signInPage.fillUsername(primaryUser().username).shouldHaveDisabledSubmit();
+    signInPage.touchAndClearUsername().shouldShowUsernameRequired();
+    signInPage.typeShortPasswordAndBlur().shouldShowPasswordTooShort();
+
+    signInPage.shouldHaveDisabledSubmit();
   });
 
   it("signs the user out and blocks access to protected routes afterwards", () => {
@@ -83,7 +91,10 @@ describe("Authentication", () => {
     sideNav.shouldShowUsername(account.username);
   });
 
-  it("keeps the sign-up submit disabled while the form is incomplete", () => {
-    signUpPage.visit().shouldHaveDisabledSubmit();
+  it("disables the sign-up submit once a required field is touched and left empty", () => {
+    // Same Formik behaviour as the sign-in form: enabled while pristine.
+    signUpPage.visit().shouldHaveEnabledSubmit();
+
+    signUpPage.touchAndClearFirstName().shouldHaveDisabledSubmit();
   });
 });

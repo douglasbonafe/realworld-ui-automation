@@ -49,6 +49,39 @@ export class SignInPage {
     await expect(this.submit).toBeDisabled();
   }
 
+  async expectSubmitEnabled(): Promise<void> {
+    await expect(this.submit).toBeEnabled();
+  }
+
+  /**
+   * Touch a field and leave it invalid, so Formik marks the form invalid.
+   *
+   * The button is bound to `disabled={!isValid || isSubmitting}`, and Formik
+   * starts with `isValid === true` — so a pristine form has an ENABLED button.
+   * It only becomes disabled after a field has been touched and failed
+   * validation. Typing, clearing and blurring is the shortest route there.
+   */
+  async touchAndClearUsername(): Promise<void> {
+    await this.username.fill("x");
+    await this.username.fill("");
+    await this.username.blur();
+  }
+
+  async typeShortPasswordAndBlur(): Promise<void> {
+    await this.password.fill("abc");
+    await this.password.blur();
+  }
+
+  async expectUsernameRequired(): Promise<void> {
+    await expect(this.page.locator("#username-helper-text")).toContainText("Username is required");
+  }
+
+  async expectPasswordTooShort(): Promise<void> {
+    await expect(this.page.locator("#password-helper-text")).toContainText(
+      "Password must contain at least 4 characters",
+    );
+  }
+
   async expectVisible(): Promise<void> {
     await expect(this.username).toBeVisible();
     await expect(this.submit).toBeVisible();

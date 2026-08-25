@@ -1,6 +1,20 @@
 import { defineConfig, devices } from "@playwright/test";
+import { STORAGE_STATE } from "./fixtures/seed-users";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
+
+/**
+ * Shared by every browser project: the session written by the setup project,
+ * and the viewport the other two suites use.
+ *
+ * `storageState` belongs HERE, in project config — not in a `test.use()` call
+ * inside an imported helper module, where Playwright silently ignores it. See
+ * the comment in fixtures/test.ts for the failure that taught us.
+ */
+const AUTHENTICATED = {
+  storageState: STORAGE_STATE,
+  viewport: { width: 1280, height: 1000 },
+};
 
 /**
  * Playwright configuration for cypress-realworld-app.
@@ -61,25 +75,27 @@ export default defineConfig({
     {
       name: "chromium",
       testMatch: /tests\/.*\.spec\.ts/,
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 1000 } },
+      use: { ...devices["Desktop Chrome"], ...AUTHENTICATED },
       dependencies: ["setup"],
     },
     {
       name: "firefox",
       testMatch: /tests\/.*\.spec\.ts/,
-      use: { ...devices["Desktop Firefox"], viewport: { width: 1280, height: 1000 } },
+      use: { ...devices["Desktop Firefox"], ...AUTHENTICATED },
       dependencies: ["setup"],
     },
     {
       name: "webkit",
       testMatch: /tests\/.*\.spec\.ts/,
-      use: { ...devices["Desktop Safari"], viewport: { width: 1280, height: 1000 } },
+      use: { ...devices["Desktop Safari"], ...AUTHENTICATED },
       dependencies: ["setup"],
     },
     {
       name: "mobile-chrome",
       testMatch: /tests\/.*\.spec\.ts/,
-      use: { ...devices["Pixel 7"] },
+      // Keeps the device's own viewport, so the drawer really does collapse
+      // behind the hamburger and the page objects get exercised in that mode.
+      use: { ...devices["Pixel 7"], storageState: STORAGE_STATE },
       dependencies: ["setup"],
     },
   ],

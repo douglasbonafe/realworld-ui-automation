@@ -10,7 +10,7 @@ import { primaryUser } from "../support/types";
  */
 describe("User settings", () => {
   beforeEach(() => {
-    cy.loginByApi(primaryUser().username);
+    cy.login(primaryUser().username);
   });
 
   it("persists an updated profile across a reload", () => {

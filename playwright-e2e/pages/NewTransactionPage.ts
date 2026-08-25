@@ -63,4 +63,22 @@ export class NewTransactionPage {
     await expect(this.submitPayment).toBeDisabled();
     await expect(this.submitRequest).toBeDisabled();
   }
+
+  async expectSubmitEnabled(): Promise<void> {
+    await expect(this.submitPayment).toBeEnabled();
+    await expect(this.submitRequest).toBeEnabled();
+  }
+
+  /**
+   * Touch the amount field and leave it empty.
+   *
+   * Like every other form in this app, the buttons are bound to
+   * `disabled={!isValid || isSubmitting}` and Formik starts with
+   * `isValid === true` — so a pristine form has ENABLED buttons.
+   */
+  async touchAndClearAmount(): Promise<void> {
+    await this.amount.fill("1");
+    await this.amount.fill("");
+    await this.amount.blur();
+  }
 }

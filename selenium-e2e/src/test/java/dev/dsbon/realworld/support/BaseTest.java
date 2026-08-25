@@ -1,5 +1,6 @@
 package dev.dsbon.realworld.support;
 
+import dev.dsbon.realworld.pages.SideNav;
 import dev.dsbon.realworld.pages.SignInPage;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -40,15 +41,29 @@ public abstract class BaseTest {
   }
 
   /**
-   * Sign in through the UI.
+   * Sign in through the UI, and do not return until the session actually exists.
+   *
+   * <p>The final {@code awaitVisible()} is the whole point. Clicking submit only
+   * <i>starts</i> the login: the request is in flight, the XState machine has not
+   * transitioned, and the app is still unauthenticated. A helper that returns
+   * there lets the next line navigate to a protected route mid-login, get
+   * redirected to /signin, and fail with "element never found" — a symptom that
+   * looks nothing like its cause.
+   *
+   * <p>The first CI run on this repository showed exactly that: the feed tests
+   * passed (they navigate to "/", which is where login lands anyway) while the
+   * payment and settings tests failed, from one shared root cause.
    *
    * <p>Selenium has no equivalent of {@code cy.session()} or Playwright's
    * {@code storageState}, so every test that needs a session pays for a real
-   * login. That cost is visible in the runtimes in docs/framework-comparison.md
-   * and is the honest trade-off of the stack, not a flaw in the suite.
+   * login. That cost is the honest trade-off of the stack — see
+   * docs/framework-comparison.md.
    */
   protected void signInAsPrimaryUser() {
-    new SignInPage(driver).open().signInAs(SeedUsers.primary().username(), SeedUsers.defaultPassword());
+    new SignInPage(driver)
+        .open()
+        .signInAs(SeedUsers.primary().username(), SeedUsers.defaultPassword());
+    new SideNav(driver).awaitVisible();
   }
 
   /** Saves a PNG under target/screenshots and returns its path. */

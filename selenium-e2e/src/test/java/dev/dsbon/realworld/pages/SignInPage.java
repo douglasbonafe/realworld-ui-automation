@@ -58,4 +58,37 @@ public class SignInPage extends BasePage {
   public boolean isSubmitEnabled() {
     return isEnabled(SUBMIT);
   }
+
+  /**
+   * Touch the username field and leave it empty, so Formik marks the form invalid.
+   *
+   * <p>The button is bound to {@code disabled={!isValid || isSubmitting}} and
+   * Formik starts with {@code isValid === true} — a pristine form has an ENABLED
+   * button. It only becomes disabled once a field has been touched and failed
+   * validation.
+   */
+  public SignInPage touchAndClearUsername() {
+    // Type first, then clear. Clearing an already-empty field fires no change
+    // event, so Formik would never mark the field dirty and the assertion would
+    // depend on blur alone. Typing guarantees the state transition.
+    fill(USERNAME, "x");
+    fill(USERNAME, "");
+    // Blur by moving focus to the next field; validation fires on blur.
+    visible(PASSWORD).click();
+    return this;
+  }
+
+  public SignInPage typeShortPassword() {
+    fill(PASSWORD, "abc");
+    visible(USERNAME).click();
+    return this;
+  }
+
+  public String usernameHelperText() {
+    return textOf(By.id("username-helper-text"));
+  }
+
+  public String passwordHelperText() {
+    return textOf(By.id("password-helper-text"));
+  }
 }

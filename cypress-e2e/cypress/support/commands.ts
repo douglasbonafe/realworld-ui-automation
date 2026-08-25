@@ -4,48 +4,72 @@ import { defaultPassword } from "./types";
 /**
  * Log in through the user interface.
  *
- * This is the honest path: it exercises the real form, the real validation and
- * the real redirect, exactly as a person would. Use it in the tests that are
- * *about* authentication.
+ * The honest path: the real form, the real validation, the real redirect. Used
+ * directly by the tests that are *about* authentication.
  */
 Cypress.Commands.add("loginByUi", (username: string, password = defaultPassword()) => {
   cy.visit("/signin");
   cy.get(SEL.signIn.username).type(username);
   cy.get(SEL.signIn.password).type(password, { log: false });
   cy.get(SEL.signIn.submit).click();
+  cy.get(SEL.sideNav.root).should("be.visible");
 });
 
 /**
- * Log in through the backend API and drop the resulting session cookie into the
- * browser.
+ * Log in once and reuse the session for every later test.
  *
- * Use this in every test that is *not* about authentication. A test about making
- * a payment should fail because the payment broke, never because the login form
- * changed — and it should not spend three seconds re-proving that login works.
+ * ---------------------------------------------------------------------------
+ * WHY THIS DRIVES THE UI INSTEAD OF CALLING THE LOGIN API
+ * ---------------------------------------------------------------------------
+ * The obvious optimisation is `cy.request("POST", apiUrl + "/login")`: one HTTP
+ * call, no rendering, session cookie set. It does not work against this
+ * application, and the way it fails is worth understanding.
  *
- * Wrapped in `cy.session()`, so the work happens once per username per spec file
- * and is replayed from cache afterwards.
+ * The backend session is genuinely valid — `GET /checkAuth` returns 200. But the
+ * front end does not decide whether you are logged in from the cookie. Its
+ * XState auth machine rehydrates from localStorage (`src/machines/authMachine.ts`):
+ *
+ *     const stateDefinition = JSON.parse(localStorage.getItem("authState"));
+ *
+ * An API-only login never writes `authState`, so the machine boots
+ * unauthenticated and every protected route redirects to /signin — while the
+ * server happily considers you signed in. The symptom is baffling: a login that
+ * "succeeded", followed by "element [data-test=nav-transaction-tabs] never found".
+ *
+ * This is also why the application's own suite reaches for `loginByXstate` and
+ * barely uses the `loginByApi` command it defines.
+ *
+ * `cy.session()` snapshots cookies AND localStorage, so caching a UI login gives
+ * a session that is indistinguishable from a real one — the same choice the
+ * Playwright suite makes with its `storageState` setup project.
+ *
+ * The cost is one real login per user per run instead of one HTTP request.
+ * Correctness first.
  */
-Cypress.Commands.add("loginByApi", (username: string, password = defaultPassword()) => {
+Cypress.Commands.add("login", (username: string, password = defaultPassword()) => {
   cy.session(
-    ["api-login", username],
+    ["ui-login", username],
     () => {
-      cy.request({
-        method: "POST",
-        url: `${Cypress.env("apiUrl")}/login`,
-        body: { username, password },
-      })
-        .its("status")
-        .should("eq", 200);
+      cy.visit("/signin");
+      cy.get(SEL.signIn.username).type(username);
+      cy.get(SEL.signIn.password).type(password, { log: false });
+      cy.get(SEL.signIn.submit).click();
+      // Do not let the session be snapshotted until the app has genuinely
+      // finished authenticating. Caching a half-written state produces failures
+      // in unrelated tests that are very hard to trace back to here.
+      cy.get(SEL.sideNav.root).should("be.visible");
+      cy.get(SEL.sideNav.username).should("contain.text", `@${username}`);
     },
     {
-      // Prove the restored session is actually usable before handing it to the
-      // test. Without this, an expired cookie would surface as a confusing
-      // failure deep inside the test body instead of here.
       validate() {
+        // Check both halves, because either one alone can be stale: the server
+        // session, and the client state the front end actually reads.
         cy.request({ url: `${Cypress.env("apiUrl")}/checkAuth`, failOnStatusCode: false })
           .its("status")
           .should("eq", 200);
+        cy.window().then((win) => {
+          expect(win.localStorage.getItem("authState"), "persisted authState").to.not.be.null;
+        });
       },
       cacheAcrossSpecs: true,
     },
@@ -53,28 +77,12 @@ Cypress.Commands.add("loginByApi", (username: string, password = defaultPassword
 });
 
 /**
- * Dismiss the first-run onboarding dialog if the app decides to show it.
- *
- * A freshly registered user has no bank account, so the app opens a modal that
- * covers the page. Seeded users normally do not see it — hence the conditional.
- * Conditional logic in a test is usually a smell; here the branch is genuinely
- * part of the product's behaviour, not a workaround for a race.
- */
-Cypress.Commands.add("dismissOnboardingIfPresent", () => {
-  cy.get("body").then(($body) => {
-    if ($body.find(SEL.onboarding.dialog).length > 0) {
-      cy.get(SEL.onboarding.next).click();
-    }
-  });
-});
-
-/**
  * Wait for the transaction list to finish loading.
  *
- * The list renders a skeleton placeholder while data is in flight. Asserting
- * that the skeleton is gone is a deterministic signal that rendering finished —
- * far better than `cy.wait(2000)`, which is both slower on a fast machine and
- * still flaky on a slow one.
+ * The list renders a skeleton placeholder while data is in flight, so its
+ * disappearance is a deterministic "rendering finished" signal — far better than
+ * `cy.wait(2000)`, which is both slower on a fast machine and still flaky on a
+ * slow one.
  */
 Cypress.Commands.add("waitForTransactionList", () => {
   cy.get(SEL.transactions.skeleton).should("not.exist");
@@ -86,8 +94,7 @@ declare global {
   namespace Cypress {
     interface Chainable {
       loginByUi(username: string, password?: string): Chainable<void>;
-      loginByApi(username: string, password?: string): Chainable<void>;
-      dismissOnboardingIfPresent(): Chainable<void>;
+      login(username: string, password?: string): Chainable<void>;
       waitForTransactionList(): Chainable<void>;
     }
   }

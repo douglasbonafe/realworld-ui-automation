@@ -1,13 +1,18 @@
-import { anonTest as test, expect } from "../fixtures/test";
+import { test, expect } from "../fixtures/test";
 import { DEFAULT_PASSWORD, PRIMARY_USER } from "../fixtures/seed-users";
 
 /**
  * Authentication.
  *
- * Uses `anonTest`, which starts from an empty storage state — otherwise every
- * test here would begin already logged in via the shared session and prove
- * nothing.
+ * Overrides the project's `storageState` with an empty one, so these tests start
+ * as a first-time visitor — otherwise every case here would begin already logged
+ * in via the shared session and prove nothing.
+ *
+ * This call has to live in the spec file. `test.use()` inside an imported helper
+ * module is silently ignored — see fixtures/test.ts.
  */
+test.use({ storageState: { cookies: [], origins: [] } });
+
 test.describe("Authentication", () => {
   test("signs a seeded user in and lands on the transaction feed", async ({
     page,
@@ -43,11 +48,23 @@ test.describe("Authentication", () => {
     await signInPage.expectError("Username or password is invalid");
   });
 
-  test("keeps the submit button disabled until both fields are filled", async ({ signInPage }) => {
+  test("disables the submit button once a field is touched and left invalid", async ({
+    signInPage,
+  }) => {
+    // The pristine form is NOT disabled. Formik starts with `isValid === true`
+    // and the button is bound to `disabled={!isValid || isSubmitting}`, so the
+    // guard only engages after a field has been touched and failed validation.
+    // Asserting the enabled state first pins that down instead of leaving it an
+    // accident.
     await signInPage.goto();
-    await signInPage.expectSubmitDisabled();
+    await signInPage.expectSubmitEnabled();
 
-    await signInPage.username.fill(PRIMARY_USER.username);
+    await signInPage.touchAndClearUsername();
+    await signInPage.expectUsernameRequired();
+
+    await signInPage.typeShortPasswordAndBlur();
+    await signInPage.expectPasswordTooShort();
+
     await signInPage.expectSubmitDisabled();
   });
 
@@ -97,8 +114,14 @@ test.describe("Authentication", () => {
     await sideNav.expectSignedInAs(account.username);
   });
 
-  test("keeps the sign-up submit disabled while the form is incomplete", async ({ signUpPage }) => {
+  test("disables the sign-up submit once a required field is touched and left empty", async ({
+    signUpPage,
+  }) => {
+    // Same Formik behaviour as the sign-in form: enabled while pristine.
     await signUpPage.goto();
+    await signUpPage.expectSubmitEnabled();
+
+    await signUpPage.touchAndClearFirstName();
     await signUpPage.expectSubmitDisabled();
   });
 });

@@ -10,7 +10,7 @@ import { contactUser, primaryUser } from "../support/types";
  */
 describe("New transaction", () => {
   beforeEach(() => {
-    cy.loginByApi(primaryUser().username);
+    cy.login(primaryUser().username);
   });
 
   it("pays a contact and shows the payment in the sender's personal feed", () => {
@@ -47,14 +47,17 @@ describe("New transaction", () => {
     transactionFeedPage.openFeed("mine").shouldContainTransaction(description, "+$12.00");
   });
 
-  it("keeps both submit buttons disabled until amount and description are filled", () => {
+  it("disables both submit buttons once the amount is touched and left empty", () => {
     const payee = contactUser();
 
+    // Pristine means ENABLED here — Formik starts with `isValid === true` and
+    // the buttons are bound to `disabled={!isValid || isSubmitting}`. The guard
+    // only engages after a field has been touched and failed validation.
     newTransactionPage
       .visit()
       .selectContact(payee.id, payee.firstName)
-      .shouldHaveDisabledSubmit()
-      .enterPaymentDetails("10.00", "")
+      .shouldHaveEnabledSubmit()
+      .touchAndClearAmount()
       .shouldHaveDisabledSubmit();
   });
 

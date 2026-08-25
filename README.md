@@ -289,9 +289,11 @@ Fourteen tests × one full UI login each is a lot of wasted seconds — and wors
 
 | Framework | Mechanism | Cost | Notes |
 |---|---|---|---|
-| **Cypress** | `cy.session()` around an API login, `cacheAcrossSpecs: true` | Once per user, per run | Includes a `validate()` callback so a stale cookie fails *here*, not deep inside an unrelated test |
-| **Playwright** | A `setup` project performs a **UI** login and saves `storageState`; test projects declare `dependencies: ["setup"]` | Once per run | Deliberately a UI login: the stored state is then indistinguishable from a real session |
-| **Selenium** | Full UI login in `@BeforeEach` | Every single test | WebDriver has no session-caching primitive; this is simply what the stack costs |
+| **Cypress** | `cy.session()` around a **UI** login, `cacheAcrossSpecs: true` | Once per user, per run | `validate()` checks both the server session and the persisted `authState`, so a stale one fails *here* rather than deep inside an unrelated test |
+| **Playwright** | A `setup` project performs a **UI** login and saves `storageState`; test projects declare `dependencies: ["setup"]` | Once per run | `storageState` is applied in **project config** — `test.use()` inside a helper module is silently ignored |
+| **Selenium** | Full UI login in `@BeforeEach`, waiting for the drawer before returning | Every single test | WebDriver has no session-caching primitive; this is simply what the stack costs |
+
+> **Both caching suites deliberately cache a UI login rather than an API call.** The obvious `cy.request("POST", "/login")` shortcut produces a session the *server* accepts and the *client* ignores: the app rehydrates its XState auth machine from `localStorage["authState"]`, which an API login never writes. See [trap #1](docs/app-under-test.md#1-a-valid-backend-session-is-not-enough--the-client-rehydrates-from-localstorage).
 
 The authentication *tests themselves* always use the real form in all three suites — shortcutting there would test nothing.
 
@@ -340,7 +342,7 @@ The full write-up is in **[docs/framework-comparison.md](docs/framework-comparis
 
 ## Honest limits
 
-- **The suites have not been run against a live application in this repository's own CI yet.** They are written against the app's actual source — every selector, error string, HTTP status and seeded username here was read out of `cypress-io/cypress-realworld-app` rather than assumed — but the first genuine execution will be the first CI run. Expect to adjust timeouts before you expect to adjust selectors.
+- **The first CI run was red, and the three root causes are documented rather than hidden.** Selectors and seeded data were all read out of `cypress-io/cypress-realworld-app` and held up; what did not hold up were three *behavioural* assumptions — API login being sufficient, submit buttons starting disabled, and the hamburger being safe to click on desktop. All three are written up in [docs/app-under-test.md](docs/app-under-test.md#the-three-traps-that-cost-us-a-ci-run), because how a suite fails the first time is more instructive than a repository that pretends it never did.
 - **The seed data is a moving target.** These tests pin five specific usernames. If upstream changes `database-seed.json`, `shared/seed-users.json` needs the same change.
 - **No visual regression, no accessibility axis, no performance budget.** Those are separate concerns with separate tools and would muddy a framework comparison.
 - **The Selenium suite runs three browser instances in parallel at most** (`junit-platform.properties`). Raising that on a laptop mostly buys you swap.
