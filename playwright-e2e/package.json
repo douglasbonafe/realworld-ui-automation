@@ -1,0 +1,23 @@
+{
+  "name": "realworld-playwright-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright end-to-end suite for cypress-realworld-app",
+  "type": "module",
+  "scripts": {
+    "postinstall": "playwright install --with-deps chromium",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "PWDEBUG=1 playwright test",
+    "test:all-browsers": "playwright test --project=chromium --project=firefox --project=webkit",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen http://localhost:3000",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^22.10.0",
+    "typescript": "~5.9.3"
+  }
+}
