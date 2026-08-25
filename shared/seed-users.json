@@ -1,0 +1,50 @@
+{
+  "_comment": [
+    "Single source of truth for test users, shared by all three frameworks.",
+    "These are the five users produced by `yarn db:seed:dev` in cypress-realworld-app,",
+    "taken verbatim from its data/database-seed.json. Every seeded user has the same",
+    "plaintext password, 's3cret' (the bcrypt hash in the seed file decodes to it, and",
+    "the app's own specs use that literal).",
+    "",
+    "If the app is re-seeded with `yarn db:seed` (which regenerates random data), these",
+    "ids and usernames change. Re-run `yarn db:seed:dev` to get this exact set back."
+  ],
+  "defaultPassword": "s3cret",
+  "users": [
+    {
+      "id": "uBmeaz5pX",
+      "username": "Heath93",
+      "firstName": "Ted",
+      "lastName": "Parisian",
+      "role": "primary"
+    },
+    {
+      "id": "GjWovtg2hr",
+      "username": "Arvilla_Hegmann",
+      "firstName": "Kristian",
+      "lastName": "Bradtke",
+      "role": "contact"
+    },
+    {
+      "id": "_XblMqbuoP",
+      "username": "Dina20",
+      "firstName": "Darrel",
+      "lastName": "Ortiz",
+      "role": "spare"
+    },
+    {
+      "id": "M1ty1gR8B3",
+      "username": "Reyes.Osinski",
+      "firstName": "Ruthie",
+      "lastName": "Prosacco",
+      "role": "spare"
+    },
+    {
+      "id": "WHjJ4qR2R2",
+      "username": "Judah_Dietrich50",
+      "firstName": "Lia",
+      "lastName": "Rosenbaum",
+      "role": "spare"
+    }
+  ]
+}

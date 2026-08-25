@@ -1,0 +1,27 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Cypress
+cypress-e2e/cypress/screenshots/
+cypress-e2e/cypress/videos/
+cypress-e2e/cypress/downloads/
+
+# Playwright
+playwright-e2e/test-results/
+playwright-e2e/playwright-report/
+playwright-e2e/blob-report/
+playwright-e2e/.auth/
+playwright-e2e/.cache/
+
+# Maven / Java
+selenium-e2e/target/
+*.class
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
