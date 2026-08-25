@@ -110,9 +110,9 @@ Line counts for the same fourteen scenarios, excluding comments and blank lines:
 
 | | Specs | Page objects | Support + config | Total |
 |---|---:|---:|---:|---:|
-| Cypress | 150 | 254 | 195 | **599** |
-| Playwright | 167 | 284 | 156 | **607** |
-| Selenium | 211 | 370 | 198 | **779** |
+| Cypress | 152 | 293 | 190 | **635** |
+| Playwright | 178 | 321 | 156 | **655** |
+| Selenium | 214 | 536 | 205 | **955** |
 
 Counted with:
 
@@ -120,9 +120,19 @@ Counted with:
 cat <files> | grep -vE '^\s*($|//|/\*|\*|\*/)' | wc -l
 ```
 
-Selenium's ~30% overhead is structural, not stylistic: the wait helpers, the driver factory, the screenshot extension and the fixture reader are all things the other two provide out of the box. Java's syntax accounts for some of the rest. Once that scaffolding exists, adding the *next* test costs roughly the same in all three.
+These are the numbers **after** all three suites went green against a live application — which matters, because the gap widened as they were stabilised. An earlier count, taken when the code merely looked right, had Selenium about 30% larger. Making it actually pass took it to ~50%, and **every line of that growth landed in the page-object layer**:
 
-Cypress and Playwright come out within 1% of each other, which is itself a finding — the ergonomic gap between them is real but small once page objects are in place, and the meaningful differences are architectural rather than syntactic.
+- `clickUntil` — click until a real outcome holds, for idempotent targets
+- `clickThenSettle` — at most two dispatches, for buttons that move money
+- `awaitEnabled` / `awaitDisabled` — because assertions do not retry
+- a verified `fill` — because `sendKeys` is fire-and-forget
+- a React-aware native value setter — because controlled inputs ignore plain assignment
+
+Cypress and Playwright needed none of it. Re-resolving elements and retrying actionability is what their runtimes already do on every command, so the same fourteen scenarios simply never hit those failure modes. That is the honest cost of WebDriver's resolve-once-dispatch-once model, and it is invisible until you run the suite against a real React app on a loaded CI runner.
+
+Java's syntax accounts for a little of the rest. Once the scaffolding exists, adding the *next* test costs roughly the same in all three.
+
+Cypress and Playwright come out within 4% of each other, which is itself a finding — the ergonomic gap between them is real but small once page objects are in place, and the meaningful differences are architectural rather than syntactic.
 
 ---
 

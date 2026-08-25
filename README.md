@@ -7,10 +7,9 @@ Choosing a browser automation tool is usually argued from habit. This repository
 The application under test is [**cypress-realworld-app**](https://github.com/cypress-io/cypress-realworld-app), a payment app (a Venmo clone) built with React, Express and an XState-driven front end. It is a realistic target: modal onboarding wizards, debounced search, infinite-scroll feeds, optimistic updates and a Material UI component tree that does not put test attributes where you would expect.
 
 ```
-# illustrative — shape of the output, not a recorded run (see Honest limits)
 $ cd playwright-e2e && npx playwright test --project=chromium
 
-Running 14 tests using 4 workers
+Running 18 tests using 4 workers
 
   ✓  auth.spec.ts:13 › signs a seeded user in and lands on the transaction feed (2.1s)
   ✓  auth.spec.ts:26 › rejects a wrong password without revealing whether the user exists (1.4s)
@@ -19,8 +18,10 @@ Running 14 tests using 4 workers
   ✓  user-settings.spec.ts:15 › persists an updated profile across a reload (2.6s)
   …
 
-  14 passed (21.3s)
+  18 passed (34.1s)
 ```
+
+All three suites are green in CI against a freshly seeded application: **Cypress** (all specs), **Playwright** (18 tests × Chromium, Firefox and WebKit), **Selenium** (17 tests). Getting there took eight CI runs and turned up eleven distinct behavioural findings — every one of them written up rather than quietly patched, because that is the part of a suite that is actually worth reading.
 
 ---
 
@@ -342,7 +343,24 @@ The full write-up is in **[docs/framework-comparison.md](docs/framework-comparis
 
 ## Honest limits
 
-- **The first CI run was red, and the three root causes are documented rather than hidden.** Selectors and seeded data were all read out of `cypress-io/cypress-realworld-app` and held up; what did not hold up were three *behavioural* assumptions — API login being sufficient, submit buttons starting disabled, and the hamburger being safe to click on desktop. All three are written up in [docs/app-under-test.md](docs/app-under-test.md#the-three-traps-that-cost-us-a-ci-run), because how a suite fails the first time is more instructive than a repository that pretends it never did.
+- **It took eight CI runs to go green, and every root cause is documented rather than quietly patched.** The selectors and seeded data read out of `cypress-io/cypress-realworld-app` all held up. What did not hold up were *behavioural* assumptions, and each one produced a symptom that looked like a different problem than it was:
+
+  | # | Assumption | Reality |
+  |---|---|---|
+  | 1 | An API login gives you a session | The client rehydrates auth from `localStorage`; the server session alone leaves it logged out |
+  | 2 | `data-test` sits on the MUI wrapper | True for most fields, but **six** pass it through `inputProps` onto the `<input>` |
+  | 3 | Submit buttons start disabled | Auth and settings forms start **enabled**; only the transaction wizard starts disabled, via `validateOnMount` |
+  | 4 | The hamburger is safe to click | On desktop it **closes** the already-open drawer |
+  | 5 | Typed decimals survive | The amount field is currency-masked; the backend multiplies by 100 |
+  | 6 | `sendKeys` delivers keystrokes | Silently lost when React re-renders between lookup and dispatch |
+  | 7 | A click that throws nothing worked | Same — no exception, no effect, no navigation |
+  | 8 | Clicking a tab switches the feed | Lost the same way, so a payment test searched the wrong feed |
+  | 9 | Retrying a click is always safe | Not for a button that moves money |
+  | 10 | A 204 means the client knows | WebKit re-rendered the form from a stale user object |
+  | 11 | Seeded values are stable | Another test renames the shared account |
+
+  Findings 1–5 are written up in [docs/app-under-test.md](docs/app-under-test.md#the-three-traps-that-cost-us-a-ci-run); 6–11 live as comments at the code that handles them. Finding 11 was latent in the Cypress and Playwright suites too — they were winning that race by ordering luck, and both were fixed.
+- **Two of those were bugs in the test infrastructure, not the app.** Screenshots were never captured for three red runs because `TestWatcher.testFailed` fires *after* `@AfterEach` quits the browser, so every capture threw on a dead session and the artifact uploaded empty. And Playwright's `storageState` was set with `test.use()` inside an imported helper, where it is silently ignored — so twelve "authenticated" tests ran anonymous. Diagnostics that look like they work are worse than none.
 - **The seed data is a moving target.** These tests pin five specific usernames. If upstream changes `database-seed.json`, `shared/seed-users.json` needs the same change.
 - **No visual regression, no accessibility axis, no performance budget.** Those are separate concerns with separate tools and would muddy a framework comparison.
 - **The Selenium suite runs three browser instances in parallel at most** (`junit-platform.properties`). Raising that on a laptop mostly buys you swap.
