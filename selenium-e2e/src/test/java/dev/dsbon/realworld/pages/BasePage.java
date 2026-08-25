@@ -89,17 +89,41 @@ public abstract class BasePage {
           if (settled.test(d)) {
             return true;
           }
-          try {
-            WebElement target =
-                d.findElements(locator).stream().filter(WebElement::isDisplayed).findFirst().orElse(null);
-            if (target != null) {
+          WebElement target =
+              d.findElements(locator).stream()
+                  .filter(WebElement::isDisplayed)
+                  .findFirst()
+                  .orElse(null);
+          if (target != null) {
+            // Scroll first. WebDriver scrolls an element into view before
+            // clicking, but inside a scrollable MUI list its idea of "into view"
+            // can still leave the click point under a sticky header — which
+            // surfaces as ElementClickInterceptedException, or worse, as a click
+            // that silently lands on the wrong element.
+            scrollIntoView(d, target);
+            try {
               target.click();
+            } catch (org.openqa.selenium.WebDriverException nativeClickFailed) {
+              // Documented fallback, not a blanket workaround. A JS click
+              // dispatches a real bubbling MouseEvent, so React's delegated
+              // handler still fires, but it bypasses WebDriver's actionability
+              // checks — meaning it would also mask a genuinely obscured
+              // element. It runs only after a native click has already failed,
+              // so the honest signal is tried first.
+              jsClick(d, target);
             }
-          } catch (org.openqa.selenium.WebDriverException swallowed) {
-            // Stale or intercepted mid-render: the next poll re-finds it.
           }
           return settled.test(d);
         });
+  }
+
+  private static void scrollIntoView(WebDriver driver, WebElement element) {
+    ((org.openqa.selenium.JavascriptExecutor) driver)
+        .executeScript("arguments[0].scrollIntoView({block:'center'});", element);
+  }
+
+  private static void jsClick(WebDriver driver, WebElement element) {
+    ((org.openqa.selenium.JavascriptExecutor) driver).executeScript("arguments[0].click();", element);
   }
 
   /** True when at least one element matching the locator is rendered and visible. */
@@ -135,6 +159,35 @@ public abstract class BasePage {
 
   protected boolean isEnabled(By locator) {
     return visible(locator).isEnabled();
+  }
+
+  /**
+   * Wait for a control to become enabled or disabled.
+   *
+   * <p>This pair exists because of the sharpest practical difference between
+   * Selenium and the other two frameworks. {@code expect(button).toBeDisabled()}
+   * in Playwright and {@code should("be.disabled")} in Cypress <b>retry</b> until
+   * a deadline. {@link #isEnabled} reads once.
+   *
+   * <p>So a test that blurs a field and immediately asserts on the button is
+   * reading the DOM before React has re-rendered — and it fails on a loaded CI
+   * runner while passing on a fast laptop. That is not a flaky app; it is an
+   * assertion with no wait in a framework that does not supply one.
+   *
+   * <p>Use {@link #isEnabled} only for a state that is already settled (a freshly
+   * loaded form). Use these for any state reached through an interaction.
+   */
+  protected void awaitEnabled(By locator) {
+    wait.until(d -> d.findElement(locator).isEnabled());
+  }
+
+  protected void awaitDisabled(By locator) {
+    wait.until(d -> !d.findElement(locator).isEnabled());
+  }
+
+  /** Wait until an element's text contains the given fragment. */
+  protected void awaitTextContains(By locator, String fragment) {
+    wait.until(ExpectedConditions.textToBePresentInElementLocated(locator, fragment));
   }
 
   protected boolean isPresent(By locator) {

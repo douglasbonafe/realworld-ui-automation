@@ -67,7 +67,9 @@ class AuthTest extends BaseTest {
     page.typeShortPassword();
     assertThat(page.passwordHelperText()).contains("Password must contain at least 4 characters");
 
-    assertThat(page.isSubmitEnabled()).as("after invalid input").isFalse();
+    // awaitSubmitDisabled, not isSubmitEnabled: the state changes through a
+    // React re-render and Selenium assertions do not retry.
+    page.awaitSubmitDisabled();
   }
 
   @Test
@@ -118,7 +120,6 @@ class AuthTest extends BaseTest {
     // Same Formik behaviour as the sign-in form: enabled while pristine.
     assertThat(page.isSubmitEnabled()).as("pristine form").isTrue();
 
-    page.touchAndClearFirstName();
-    assertThat(page.isSubmitEnabled()).as("after clearing a required field").isFalse();
+    page.touchAndClearFirstName().awaitSubmitDisabled();
   }
 }

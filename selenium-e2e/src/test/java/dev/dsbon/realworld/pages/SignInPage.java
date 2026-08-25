@@ -59,6 +59,12 @@ public class SignInPage extends BasePage {
     return isEnabled(SUBMIT);
   }
 
+  /** Waits, because the button state changes through a React re-render. */
+  public SignInPage awaitSubmitDisabled() {
+    awaitDisabled(SUBMIT);
+    return this;
+  }
+
   /**
    * Touch the username field and leave it empty, so Formik marks the form invalid.
    *

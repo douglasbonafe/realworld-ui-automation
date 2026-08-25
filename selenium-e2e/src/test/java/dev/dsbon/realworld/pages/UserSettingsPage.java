@@ -35,17 +35,23 @@ public class UserSettingsPage extends BasePage {
   }
 
   /**
-   * Submit and wait for the save to land.
+   * Submit, and do not return until the save has demonstrably landed.
    *
    * <p>Selenium cannot subscribe to the network the way Cypress's {@code
    * cy.intercept} or Playwright's {@code waitForResponse} can, so the wait has to
-   * be expressed against the DOM. Re-enabling of the submit button is the app's
-   * own signal that the in-flight request finished — still deterministic, just
-   * one level less direct.
+   * be expressed against the DOM. The first attempt here waited for the submit
+   * button to re-enable — which is not a signal at all, because the button is
+   * never disabled during the request. The wait returned instantly, the reload
+   * beat the PATCH, and the test asserted the old values back.
+   *
+   * <p>The navigation drawer renders the current user's name, so it updating to
+   * the new first name is a real, observable consequence of a <i>persisted</i>
+   * save. One level less direct than asserting a 204, but genuinely
+   * deterministic.
    */
-  public UserSettingsPage save() {
+  public UserSettingsPage save(String expectedFirstName) {
     click(SUBMIT);
-    wait.until(d -> d.findElement(SUBMIT).isEnabled());
+    awaitTextContains(By.cssSelector("[data-test='sidenav-user-full-name']"), expectedFirstName);
     return this;
   }
 
@@ -62,6 +68,12 @@ public class UserSettingsPage extends BasePage {
 
   public boolean isSubmitEnabled() {
     return isEnabled(SUBMIT);
+  }
+
+  /** Waits, because the button state changes through a React re-render. */
+  public UserSettingsPage awaitSubmitDisabled() {
+    awaitDisabled(SUBMIT);
+    return this;
   }
 
   public void reload() {

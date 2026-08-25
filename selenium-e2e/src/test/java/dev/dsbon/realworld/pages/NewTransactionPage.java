@@ -79,6 +79,24 @@ public class NewTransactionPage extends BasePage {
   }
 
   /**
+   * Waiting variants, for any state reached through an interaction.
+   *
+   * <p>Selenium assertions do not retry, so reading {@link #isPaymentEnabled}
+   * immediately after typing reads the DOM before React has re-rendered.
+   */
+  public NewTransactionPage awaitSubmitEnabled() {
+    awaitEnabled(SUBMIT_PAYMENT);
+    awaitEnabled(SUBMIT_REQUEST);
+    return this;
+  }
+
+  public NewTransactionPage awaitSubmitDisabled() {
+    awaitDisabled(SUBMIT_PAYMENT);
+    awaitDisabled(SUBMIT_REQUEST);
+    return this;
+  }
+
+  /**
    * Touch the amount field and leave it empty.
    *
    * <p>Like every other form in this app the buttons are bound to

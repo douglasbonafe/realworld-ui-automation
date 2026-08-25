@@ -38,6 +38,12 @@ public class SignUpPage extends BasePage {
     return isEnabled(SUBMIT);
   }
 
+  /** Waits, because the button state changes through a React re-render. */
+  public SignUpPage awaitSubmitDisabled() {
+    awaitDisabled(SUBMIT);
+    return this;
+  }
+
   /**
    * Touch a required field and leave it empty.
    *

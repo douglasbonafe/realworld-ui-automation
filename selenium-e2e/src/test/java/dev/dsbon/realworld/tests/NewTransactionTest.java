@@ -84,15 +84,15 @@ class NewTransactionTest extends BaseTest {
     // `validateOnMount={true}` to Formik, so validation runs before any
     // interaction and `isValid` starts false. The auth forms do not, so they
     // start valid — and enabled. Same binding, opposite initial state.
+    // Snapshot reads are fine for the pristine state, which is already settled.
     assertThat(page.isPaymentEnabled()).as("pristine payment button").isFalse();
     assertThat(page.isRequestEnabled()).as("pristine request button").isFalse();
 
-    page.enterDetails("10", "Valid for now");
-    assertThat(page.isPaymentEnabled()).as("with valid input").isTrue();
-    assertThat(page.isRequestEnabled()).as("with valid input").isTrue();
+    // Everything after an interaction has to WAIT: Selenium assertions do not
+    // retry, so reading the button immediately after typing reads the DOM
+    // before React has re-rendered.
+    page.enterDetails("10", "Valid for now").awaitSubmitEnabled();
 
-    page.touchAndClearAmount();
-    assertThat(page.isPaymentEnabled()).as("after clearing the amount").isFalse();
-    assertThat(page.isRequestEnabled()).as("after clearing the amount").isFalse();
+    page.touchAndClearAmount().awaitSubmitDisabled();
   }
 }
